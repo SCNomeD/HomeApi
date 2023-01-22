@@ -1,7 +1,9 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
 using AutoMapper;
 using HomeApi.Contracts.Models.Rooms;
 using HomeApi.Data.Models;
+using HomeApi.Data.Queries;
 using HomeApi.Data.Repos;
 using Microsoft.AspNetCore.Mvc;
 
@@ -22,9 +24,31 @@ namespace HomeApi.Controllers
             _repository = repository;
             _mapper = mapper;
         }
-        
-        //TODO: Задание - добавить метод на получение всех существующих комнат
-        
+
+        [HttpPut]
+        [Route("{id}")]
+        public async Task<IActionResult> Edit(
+            [FromRoute] Guid id,
+            [FromBody] EditRoomRequest request)
+        {
+            var room = await _repository.GetRoomById(id);
+
+            if (room == null)
+                return StatusCode(409, $"Ошибка: Комната с индификатором {id} не существует.");
+
+            var withSameName = await _repository.GetRoomByName(request.NewName);
+            if (withSameName != null)
+                return StatusCode(400, $"Ошибка: Комната с именем {request.NewName} уже существует. Выберите другое имя!");
+
+            await _repository.UpdateRoom(
+                room,
+                new UpdateRoomQuery(request.NewName, request.NewArea, request.NewGasConnected, request.NewVoltage)
+            );
+
+            var gasInfo = room.GasConnected ? "подключен" : "не подключен";
+            return StatusCode(200, $"Комната обновлена! Имя - {room.Name}, площадь - {room.Area}, газ {gasInfo}, напряжение - {room.Voltage}");
+        }
+
         /// <summary>
         /// Добавление комнаты
         /// </summary>
